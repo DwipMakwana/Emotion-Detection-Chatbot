@@ -1,0 +1,141 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1e1e2f;
+    color: #f5f5f5;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.chat-container {
+    width: 420px;
+    height: 700px;
+    background-color: #2a2a40;
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#webcam {
+    display: block;
+    margin: 10px auto;
+    border-radius: 10px;
+    border: 2px solid #4c4cff;
+    max-width: 320px;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+.chat-header {
+    background-color: #4c4cff;
+    padding: 15px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.3em;
+    color: #fff;
+}
+
+.username-container {
+    background-color: #333;
+    padding: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#current-username {
+    font-size: 0.85em;
+    color: #aaa;
+    margin-right: auto;
+}
+
+.username-container input,
+.chat-input input {
+    padding: 8px;
+    border: none;
+    border-radius: 5px;
+    outline: none;
+}
+
+.username-container button,
+.chat-input button {
+    padding: 8px 14px;
+    background-color: #4c4cff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    background-color: #1f1f2e;
+    font-size: 0.95em;
+}
+
+.message {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.message .avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+}
+
+.message-content {
+    background-color: var(--bubble-color, #3a3a55);
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 70%;
+}
+
+.message-content strong {
+    display: block;
+    font-size: 0.9em;
+    color: #f0f0f0;
+}
+
+.message-content span {
+    color: #ccc;
+    font-size: 0.85em;
+}
+
+.chat-input {
+    display: flex;
+    padding: 10px;
+    gap: 10px;
+    border-top: 1px solid #444;
+    background-color: #2a2a40;
+}
+
+.chat-input input {
+    flex: 1;
+}
+
+.message.self {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+}
+
+.message.self .message-content {
+    background-color: #4c4cff !important;
+    text-align: right;
+}
+
+.message.self .avatar {
+    margin-left: 10px;
+    margin-right: 0;
+}
