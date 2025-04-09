@@ -8,12 +8,34 @@ import time
 import os
 import sys
 import random
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
 
-app = Flask(__name__, template_folder='./templates', static_folder='static')
+app = Flask("Gideon", template_folder='./templates', static_folder='static')
 socketio = SocketIO(app)
 
 # Initialize the emotion detector
 emotion_detector = FER(mtcnn=True)
+
+# Load environment variables for API keys
+load_dotenv()
+
+# Configure OpenAI client
+try:
+    # Initialize OpenAI client
+    openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    
+    if os.getenv("OPENAI_API_KEY"):
+        print("OpenAI API key loaded successfully")
+    else:
+        print("Warning: OpenAI API key not found in environment variables")
+    
+    # Initialize lock for API calls
+    api_lock = threading.Lock()
+except Exception as e:
+    print(f"Error setting up LLM integration: {e}")
+    openai_client = None
 
 # Global variables
 current_emotion = "No face detected"
@@ -112,35 +134,93 @@ def generate_frames():
             print(f"Error in frame generation: {e}")
             time.sleep(0.1)
 
-def get_mental_health_response(emotion):
-    """Generate mental health responses based on detected emotion"""
-    responses = {
-        "angry": [
-            "I'm noticing you seem upset. Would you like to talk about what's bothering you?",
-            "Taking deep breaths can help when feeling angry. Would you like me to guide you through a quick exercise?",
-            "It's okay to feel angry. Would it help to talk about what triggered these feelings?"
-        ],
-        "sad": [
-            "I notice you're feeling down. Remember that it's okay to not be okay sometimes.",
-            "Would sharing what's on your mind help you process these feelings?",
-            "Is there something specific that's making you feel sad today?"
-        ],
-        "fear": [
-            "I'm detecting signs of anxiety. Would you like to try a grounding exercise?",
-            "Remember that you're safe right now. Would talking about your concerns help?",
-            "Fear is a natural response. Can I help you work through what's causing this feeling?"
-        ],
-        "disgust": [
-            "I notice you seem uncomfortable. Would you like to talk about what's bothering you?",
-            "Sometimes changing our environment can help when we feel disgusted or uncomfortable.",
-            "Would it help to focus on something positive right now?"
-        ]
-    }
+def get_llm_response(query, emotion=None):
+    """Get response from LLM based on text and emotion using updated OpenAI API"""
+    if not openai_client:
+        return "I'm having trouble connecting to my response system. Could you tell me more about how you're feeling?"
     
-    if emotion in responses:
-        return random.choice(responses[emotion])
-    else:
-        return "How are you feeling today? I'm here to talk if you need me."
+    try:
+        # Prepare prompt based on emotion and query
+        if emotion and emotion != "No face detected" and "Error" not in emotion:
+            system_prompt = f"""You are Gideon, a mental health assistant. You provide brief, supportive responses 
+            to users. The user's facial expression shows they are feeling {emotion}. 
+            Acknowledge their emotion appropriately and provide a helpful, empathetic response.
+            Keep your response under 3 sentences and focus on practical support."""
+        else:
+            system_prompt = """You are Gideon, a mental health assistant. You provide brief, supportive responses 
+            to users. Keep your response under 3 sentences and focus on practical support."""
+        
+        with api_lock:  # Thread-safe API usage
+            response = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",  # or "gpt-4" for more advanced responses
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": query}
+                ],
+                max_tokens=150,
+                temperature=0.7
+            )
+        
+        # Extract and return the response text (updated for new API response structure)
+        if response and response.choices and len(response.choices) > 0:
+            return response.choices[0].message.content.strip()
+        else:
+            return "I'm here to support you. Could you tell me more about what's on your mind?"
+    except Exception as e:
+        print(f"Error in LLM API call: {e}")
+        return "I'm listening and want to help. Can you share more about how you're feeling right now?"
+    
+def get_claude_response(query, emotion=None):
+    """Get response from Claude API based on text and emotion"""
+    try:
+        import anthropic
+        
+        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        
+        # Prepare prompt based on emotion and query
+        if emotion and emotion != "No face detected" and "Error" not in emotion:
+            system_prompt = f"""You are Gideon, a mental health assistant. You provide brief, supportive responses 
+            to users. The user's facial expression shows they are feeling {emotion}. 
+            Acknowledge their emotion appropriately and provide a helpful, empathetic response.
+            Keep your response under 3 sentences and focus on practical support."""
+        else:
+            system_prompt = """You are Gideon, a mental health assistant. You provide brief, supportive responses 
+            to users. Keep your response under 3 sentences and focus on practical support."""
+        
+        with api_lock:  # Thread-safe API usage
+            response = client.messages.create(
+                model="claude-3-sonnet-20240229",  # or another Claude model
+                system=system_prompt,
+                max_tokens=150,
+                temperature=0.7,
+                messages=[
+                    {"role": "user", "content": query}
+                ]
+            )
+        
+        # Extract and return the response text
+        if response and response.content:
+            return response.content[0].text
+        else:
+            return "I'm here to support you. Could you tell me more about what's on your mind?"
+    except Exception as e:
+        print(f"Error in Claude API call: {e}")
+        return "I'm listening and want to help. Can you share more about how you're feeling right now?"
+
+def process_mental_health_query(query, detected_emotion=""):
+    """Process mental health queries using LLM and detected emotion"""
+    # Get response from LLM
+    llm_response = get_llm_response(query, detected_emotion)
+    
+    # If we have a response, use it
+    if llm_response:
+        return llm_response
+    
+    # Fallback response if LLM fails
+    return "I'm here to listen and support you. Could you tell me more about how you're feeling?"
+
+def generate_response(user_input, emotion):
+    return process_mental_health_query(user_input, emotion)
 
 @app.route('/')
 def index():
@@ -189,49 +269,6 @@ def handle_disconnect():
     if user:
         emit("user_left", {"username": user["username"]}, broadcast=True)
 
-def process_mental_health_query(query, detected_emotion=""):
-    """Process mental health related queries with emotion context"""
-    query_lower = query.lower()
-    
-    # Enhanced responses that incorporate detected emotion
-    if detected_emotion in ["angry", "disgust"]:
-        if "anxious" in query_lower or "anxiety" in query_lower:
-            return "I understand you're feeling frustrated. For anxiety, try the 3-3-3 rule: Name 3 things you see, 3 sounds you hear, and move 3 parts of your body. This can help redirect that energy to the present moment."
-    elif detected_emotion in ["sad", "fear"]:
-        if "anxious" in query_lower or "anxiety" in query_lower:
-            return "I can see you're feeling down. Anxiety often accompanies sadness, and that's completely normal. The 3-3-3 grounding technique might help: Notice 3 things you see, 3 sounds you hear, and move 3 parts of your body gently."
-    
-    # Original responses as fallback
-    if "anxious" in query_lower or "anxiety" in query_lower:
-        return "Anxiety is common and treatable. Try the 3-3-3 rule: Name 3 things you see, 3 sounds you hear, and move 3 parts of your body. This can help ground you in the present moment."
-    
-    elif "sad" in query_lower or "depressed" in query_lower or "depression" in query_lower:
-        return "I'm sorry you're feeling this way. Depression is real and valid. Small steps like getting some sunlight, talking to someone you trust, or doing one small enjoyable activity can help. Would you like to talk more about what's bothering you?"
-    
-    elif "stress" in query_lower or "stressed" in query_lower:
-        return "Stress affects everyone differently. Taking a few minutes for deep breathing, going for a walk, or writing down your thoughts can help manage stress. What specifically is causing you stress right now?"
-    
-    elif "lonely" in query_lower or "alone" in query_lower:
-        return "Feeling lonely is tough, but remember that connection comes in many forms. Could you reach out to someone today, even just for a brief chat? Or perhaps join an online community with shared interests?"
-    
-    elif "tired" in query_lower or "exhausted" in query_lower or "fatigue" in query_lower:
-        return "Mental and physical fatigue can be closely linked. Are you getting enough rest? Sometimes, a short break doing something you enjoy can be rejuvenating."
-    
-    elif "help" in query_lower or "resources" in query_lower:
-        return "If you need immediate support, consider calling a mental health helpline. For the US, the 988 Suicide & Crisis Lifeline is available 24/7. Would you like me to provide more specific resources?"
-    
-    elif "hello" in query_lower or "hi" in query_lower or "hey" in query_lower:
-        return "Hello there! How are you feeling today? I'm here to listen and support you."
-    
-    elif "thank" in query_lower:
-        return "You're welcome! I'm here anytime you need to talk. Taking care of your mental health is important, and I'm glad I could help."
-    
-    elif "bye" in query_lower or "goodbye" in query_lower:
-        return "Take care of yourself! Remember I'm here whenever you need support. Have a peaceful day."
-    
-    else:
-        return "I'm here to listen and support you. Could you tell me more about how you're feeling?"
-
 @socketio.on("send_message")
 def handle_message(data):
     user = users.get(request.sid)
@@ -247,22 +284,35 @@ def handle_message(data):
         with lock:
             current_user_emotion = current_emotion
         
-        # Always respond to the message without needing /gideon command
-        # Consider the detected emotion when drafting the response
-        emotion_context = ""
+        # Extract emotion type from current_emotion string
         emotion_type = ""
-        
-        if "Detected emotion:" in current_user_emotion:
-            emotion_parts = current_user_emotion.split(": ")[1].split(" (")
-            if len(emotion_parts) > 0:
-                emotion_type = emotion_parts[0].lower()
-                emotion_context = f"I notice you seem {emotion_type}. "
+        if "You feel" in current_user_emotion:
+            emotion_text = current_user_emotion.lower()
+            if "angry" in emotion_text:
+                emotion_type = "angry"
+            elif "sad" in emotion_text:
+                emotion_type = "sad"
+            elif "fear" in emotion_text or "afraid" in emotion_text:
+                emotion_type = "fear"
+            elif "disgust" in emotion_text:
+                emotion_type = "disgust"
+            elif "happy" in emotion_text:
+                emotion_type = "happy"
+            elif "surprised" in emotion_text:
+                emotion_type = "surprised"
+            elif "neutral" in emotion_text:
+                emotion_type = "neutral"
         
         # Generate response considering both message content and emotion
         reply = process_mental_health_query(message, emotion_type)
         
         # Add a small delay to make the response feel more natural
         time.sleep(1)
+        
+        # Include emotion acknowledgment if an emotion is detected
+        emotion_context = ""
+        if emotion_type and emotion_type not in ["neutral"]:
+            emotion_context = f"I notice you seem {emotion_type}. "
         
         socketio.emit("new_message", {
             "username": "Gideon",
