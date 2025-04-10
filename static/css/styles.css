@@ -1,230 +1,298 @@
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #1e1e2f;
-    color: #f5f5f5;
+/* Reset default margin and padding */
+* {
     margin: 0;
     padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+    box-sizing: border-box;
+    border-radius: 15px;
 }
 
+body, html {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #1a1a2e;
+    font-family: Arial, sans-serif;
+}
+
+/* Main title that spans the entire top */
+.main-title {
+    width: 100%;
+    color: white;
+    padding: 10px 20px;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Main container layout */
 .main-container {
     display: flex;
-    gap: 20px;
-    padding: 20px;
-    max-width: 1200px;
-    width: 100%;
+    height: calc(100vh - 55px); /* Adjust for main title height */
+    width: 100vw;
+    gap: 10px;
+    background-color: #1a1a2e;
+    color: #fff;
+    padding: 0;
+    margin: 0;
 }
 
-.video-container {
-    width: 40%;
+/* Left panel for Gideon and webcam */
+.left-panel {
+    flex: 3; /* 75% of the space */
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow: hidden; /* Removed border-radius */
+}
+
+/* Gideon robot face container */
+.robot-face-container {
+    flex: 1;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    position: relative;
+}
+
+/* User video container (webcam) */
+.user-video-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 200px;
+    height: 150px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 4px solid #4c4cff;
+    z-index: 100;
 }
 
 .video-feed {
     width: 100%;
-    border-radius: 12px;
+    height: 85%;
     overflow: hidden;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    border-radius: 0px;
 }
 
 .video-feed img {
     width: 100%;
-    display:flex;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0px;
 }
 
+/* Emotion container */
 .emotion-container {
-    margin-top: 25px;
     background-color: #4c4cff;
-    padding: 15px;
-    border-radius: 12px;
+    color: white;
+    padding: 5px 10px;
     text-align: center;
+    font-size: 14px;
     font-weight: bold;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
+    border-radius: 0px;
 }
 
+/* Chat container */
 .chat-container {
-    width: 60%;
-    flex: auto;
-    background-color: #2a2a40;
-    border-radius: 12px;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+    flex: 1; /* 25% of the space */
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.3);
+    overflow: hidden; /* Removed border-radius */
+    border-radius: 10px;
 }
 
 .chat-header {
     background-color: #4c4cff;
-    padding: 15px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 1.3em;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-.chat-header img {
-    height: 30px;
-}
-
-.username-container {
-    background-color: #333;
-    padding: 10px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-#current-username {
-    font-size: 0.85em;
-    color: #aaa;
-    margin-right: auto;
-}
-
-.username-container input,
-.chat-input input {
-    padding: 8px;
-    border: none;
-    border-radius: 5px;
-    outline: none;
-}
-
-.username-container button,
-.chat-input button {
-    padding: 8px 14px;
-    background-color: #4c4cff;
     color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+    padding: 10px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    border-radius: 0px;
 }
 
 .chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    height: 300px;
-    padding: 10px;
-    overflow-y: auto;
-    background-color: #1f1f2e;
-    font-size: 0.95em;
-}
-
-.chat-messages .user-message {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-    background-color: #1f1f2e;
-    font-size: 0.95em;
-}
-
-.chat-messages .bot-message {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-    background-color: #1f1f2e;
-    font-size: 0.95em;
-}
-
-.message {
-    margin-bottom: 10px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: left;
     gap: 10px;
 }
 
-.message .avatar {
-    width: 35px;
-    height: 35px;
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    max-width: 100%;
+}
+
+.message.self {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
+    object-fit: cover;
 }
 
 .message-content {
-    background-color: var(--bubble-color, #3a3a55);
-    padding: 8px 12px;
-    border-radius: 8px;
-    max-width: 70%;
+    background-color: var(--bubble-color, #333);
+    padding: 10px 15px;
+    border-radius: 10px;
+    display: grid;
+    row-gap: 10px;
 }
 
-.message-content strong {
-    display: block;
-    font-size: 0.9em;
-    color: #f0f0f0;
+.message.self .message-content {
+    background-color: #4c4cff;
 }
 
-.message-content span {
-    color: #ccc;
-    font-size: 0.85em;
+.system-message {
+    align-self: center;
+    font-style: italic;
+    color: #aaa;
+    font-size: 14px;
+    margin: 5px 0;
 }
 
 .chat-input {
     display: flex;
     padding: 10px;
     gap: 10px;
-    border-top: 1px solid #444;
-    background-color: #2a2a40;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0px;
 }
 
 .chat-input input {
     flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
 }
 
-.message.self {
-    flex-direction: row-reverse;
-    justify-content: right;
+.chat-input button {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #4c4cff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
 }
 
-.message.self .message-content {
-    background-color: #4c4cff !important;
-    text-align: right;
+.chat-input button:hover {
+    background-color: #3a3aff;
 }
 
-.message.self .avatar {
-    margin-left: 10px;
-    margin-right: 0;
+/* Voice button recording state */
+.chat-input button.recording {
+    background-color: #ff4c4c; /* Red background for recording state */
 }
 
-.system-message {
-    text-align: center;
-    font-style: italic;
-    color: #888;
-    margin: 10px 0;
+/* Make sure the canvas inside the container fits properly */
+.robot-face-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 15px;
 }
 
-/* Mobile responsive styles */
-@media (max-width: 900px) {
+/* Add media query for mobile devices */
+@media (max-width: 768px) {
     .main-container {
         flex-direction: column;
     }
     
-    .video-container,
-    .chat-container {
-        width: 100%;
+    .user-video-container {
+        width: 120px;
+        height: 90px;
+    }
+    
+    .left-panel {
+        flex: 2;
     }
     
     .chat-container {
-        height: 500px;
+        flex: 3;
     }
-}
-        .chat-input button.recording {
-    background-color: #ff4c4c;
-    animation: pulse 1.5s infinite;
 }
 
-@keyframes pulse {
-    0% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.7;
-    }
-    100% {
-        opacity: 1;
-    }
+/* Overlay styles */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.overlay-content {
+    background-color: #1a1a2e;
+    border-radius: 15px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 0 20px rgba(76, 76, 255, 0.5);
+}
+
+.overlay-content h2 {
+    color: #4c4cff;
+    margin-bottom: 20px;
+}
+
+.overlay-input {
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
+    margin-top: 25px;
+    justify-content: space-between;
+}
+
+.overlay-input input {
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 16px;
+    width: 70%;
+}
+
+.overlay-input button {
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    background-color: #4c4cff;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: 30%;
+}
+
+.overlay-input button:hover {
+    background-color: #3a3aff;
+}
+
+/* Add this to show username in chat header */
+#user-display-name {
+    font-weight: normal;
+    font-style: italic;
+    margin-left: 10px;
 }

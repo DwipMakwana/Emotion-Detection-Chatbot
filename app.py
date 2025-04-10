@@ -249,19 +249,8 @@ def get_emotion():
 
 @socketio.on("connect")
 def handle_connect():
-    username = f"User{random.randint(1000, 9999)}"
-    gender = random.choice(["girl", "boy"])
-    avatar_url = "/static/avatar.png"
-    users[request.sid] = {"username": username, "avatar": avatar_url}
-    emit("user_joined", {"username": username, "avatar": avatar_url}, broadcast=True)
-    emit("set_username", {"username": username})
-    
-    # Welcome message from Gideon
-    socketio.emit("new_message", {
-        "username": "Gideon",
-        "avatar": "/static/gideon.png",
-        "message": "Hello! I'm Gideon, your mental health assistant. I can see how you're feeling and I'm here to help. How are you doing today?"
-    }, to=request.sid)
+   # Don't do anything here now - wait for set_custom_username event
+   pass
 
 @socketio.on("disconnect")
 def handle_disconnect():
@@ -320,6 +309,24 @@ def handle_message(data):
             "message": emotion_context + reply
         }, to=request.sid)  # Send only to the user who sent the message
 
+@socketio.on("set_custom_username")
+def handle_custom_username(data):
+    username = data.get("username", f"User{random.randint(1000, 9999)}")
+    avatar_url = "/static/avatar.png"
+    
+    # Store the user information
+    users[request.sid] = {"username": username, "avatar": avatar_url}
+    
+    # Notify about the new user
+    emit("user_joined", {"username": username, "avatar": avatar_url}, broadcast=True)
+    emit("set_username", {"username": username})
+    
+    # Send welcome message IMMEDIATELY - no delay
+    socketio.emit("new_message", {
+        "username": "Gideon",
+        "avatar": "/static/gideon.png",
+        "message": f"Hello {username}! I'm Gideon, your mental health assistant. I can see how you're feeling and I'm here to help. How are you doing today?"
+    }, to=request.sid)
 
 @socketio.on("update_username")
 def handle_update_username(data):

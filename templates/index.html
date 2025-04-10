@@ -5,40 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gideon - Mental Health Assistant</title>
     <link rel="stylesheet" href="{{url_for('static', filename='css/styles.css')}}">
+    <!-- Add Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <div class="main-container">
-        <div class="video-container">
-            <div class="video-feed">
-                <img src="/video_feed" alt="Video Feed" id="video-stream">
+    <!-- Username overlay -->
+    <div id="username-overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Welcome to Gideon</h2>
+            <div class="overlay-input">
+                <input type="text" id="overlay-username-input" placeholder="Please enter your name to begin">
+                <button id="overlay-start-button">Start Chat</button>
             </div>
-            <div class="emotion-container" id="emotion-text">
-                Initializing emotion detection...
+        </div>
+    </div>
+
+    <!-- Full-width title at the top -->
+    <div class="main-title">
+        Gideon - Mental Health Assistant
+    </div>
+    
+    <div class="main-container">
+        <!-- Left side with Gideon face and user webcam -->
+        <div class="left-panel">
+            <!-- Main Gideon face container -->
+            <div id="robot-face-container" class="robot-face-container"></div>
+            
+            <!-- User webcam in bottom left corner -->
+            <div class="user-video-container">
+                <div class="video-feed">
+                    <img src="/video_feed" alt="Video Feed" id="video-stream">
+                </div>
+                <div class="emotion-container" id="emotion-text">
+                    Initializing emotion detection...
+                </div>
             </div>
         </div>
         
+        <!-- Right side chat container -->
         <div class="chat-container">
             <div class="chat-header">
-                Gideon Mental Health Assistant
+                Gideon Chat<span id="user-display-name"></span>
             </div>
-            
-            <!--<div class="username-container">
-                <span id="current-username"></span>
-                <input type="text" id="username-input" placeholder="New Username" />
-                <button id="update-username-button">Update Username</button>
-            </div>-->
             
             <div class="chat-messages" id="chat-messages"></div>
             
             <div class="chat-input">
                 <input type="text" id="message-input" placeholder="Type your message ..." />
                 <button id="send-button">Send</button>
-                <button id="voice-button">🎤 Speak</button>
+                <button id="voice-button">🎤</button>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="{{url_for('static', filename='js/script.js')}}"></script>
+    <!-- Add robot face script -->
+    <script src="{{url_for('static', filename='js/robot-face.js')}}"></script>
 </body>
 </html>
