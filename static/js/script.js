@@ -20,6 +20,27 @@ const colorPalette = [
     "#9b5de5", "#00bbf9", "#ffc300", "#ff6d00"
 ];
 
+let femaleVoice;
+
+function getVoices() {
+    return new Promise((resolve, reject) => {
+        let voices = speechSynthesis.getVoices();
+        if (voices.length > 0) {
+            resolve(voices);
+        } else {
+            speechSynthesis.onvoiceschanged = function() {
+                voices = speechSynthesis.getVoices();
+                resolve(voices);
+            };
+        }
+    });
+}
+
+getVoices().then((voices) => {
+    //console.log(voices);
+    femaleVoice = voices.find((voice) => voice.name.includes("Female"));
+});
+
 // Initialize socket connection only after user enters their name
 let socketInitialized = false;
 
@@ -126,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
     socket.on("connect", function() {
         // Give time for robot-face.js to fully initialize
         setTimeout(() => {
-            console.log("Socket ready for messages");
+            //console.log("Socket ready for messages");
         }, 1000);
     });
 });
@@ -170,32 +191,42 @@ function speakMessage(message) {
         window.startSpeaking();
     }
     
-    // Create and configure the speech utterance
-    const utterance = new SpeechSynthesisUtterance(message);
-    utterance.lang = "en-US";
-    utterance.rate = 1.0; // Normal rate
-    utterance.pitch = 1.0; // Normal pitch
-    utterance.volume = 1.0; // Full volume
-    
-    // Make sure the mouth stops moving after speech ends
-    utterance.onend = function() {
-        if (window.stopSpeaking) {
-            window.stopSpeaking();
+    getVoices().then((voices) => {
+        const femaleVoice = voices.find((voice) => voice.name.includes("Female"));
+        
+        // Create and configure the speech utterance
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = "en-US";
+        utterance.rate = 1.0; // Normal rate
+        utterance.pitch = 1.0; // Normal pitch
+        utterance.volume = 1.0; // Full volume
+        
+        if (femaleVoice) {
+            utterance.voice = femaleVoice;
+        } else {
+            console.log("No female voice found");
         }
-    };
-    
-    // Stop any ongoing speech before starting new one
-    speechSynthesis.cancel();
-    
-    // Start speaking
-    speechSynthesis.speak(utterance);
-    
-    // Set a backup timer in case the onend event doesn't fire
-    setTimeout(() => {
-        if (window.stopSpeaking) {
-            window.stopSpeaking();
-        }
-    }, message.length * 100 + 2000); // Rough estimate plus buffer
+        
+        // Make sure the mouth stops moving after speech ends
+        utterance.onend = function() {
+            if (window.stopSpeaking) {
+                window.stopSpeaking();
+            }
+        };
+        
+        // Stop any ongoing speech before starting new one
+        speechSynthesis.cancel();
+        
+        // Start speaking
+        speechSynthesis.speak(utterance);
+        
+        // Set a backup timer in case the onend event doesn't fire
+        setTimeout(() => {
+            if (window.stopSpeaking) {
+                window.stopSpeaking();
+            }
+        }, message.length * 100 + 2000); // Rough estimate plus buffer
+    });
 }
 
 let recognition = null;
