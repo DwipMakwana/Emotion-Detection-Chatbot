@@ -1,0 +1,8 @@
+services:
+  gideon:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./.env:/app/.env
+    restart: unless-stopped
