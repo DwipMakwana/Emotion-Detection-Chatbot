@@ -125,21 +125,6 @@ usernameInput.addEventListener("keypress", (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    const videoStream = document.getElementById('video-stream');
-    
-    // Add error handling for the video feed
-    videoStream.onerror = function() {
-        console.error("Error loading video feed");
-        // Try reloading the video feed
-        setTimeout(() => {
-            videoStream.src = "/video_feed?" + new Date().getTime(); // Add timestamp to avoid caching
-        }, 2000);
-    };
-    
-    // Ensure the video feed is visible
-    videoStream.style.display = 'block';
-    videoStream.style.width = '100%';
-    
     // Set focus to username input
     usernameInput.focus();
     
@@ -281,16 +266,6 @@ function stopRecording() {
         sendButton.click();
     }
 }
-
-// Update emotion text
-setInterval(function() {
-    fetch('/emotion')
-        .then(response => response.text())
-        .then(data => {
-            emotionText.innerText = data;
-        })
-        .catch(err => console.error("Error fetching emotion:", err));
-}, 500);
 
 sendButton.addEventListener("click", () => {
     const message = messageInput.value.trim();

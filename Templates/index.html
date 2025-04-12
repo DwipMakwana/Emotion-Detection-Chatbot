@@ -34,7 +34,9 @@
             <!-- User webcam in bottom left corner -->
             <div class="user-video-container">
                 <div class="video-feed">
-                    <img src="/video_feed" alt="Video Feed" id="video-stream">
+                    <!-- Replace server-side video feed with client-side webcam -->
+                    <video id="webcam-video" autoplay playsinline style="display: block;border-radius: 0px; transform: scaleX(-1);"></video>
+                    <canvas id="webcam-canvas" style="display: none;"></canvas>
                 </div>
                 <div class="emotion-container" id="emotion-text">
                     Initializing emotion detection...
@@ -59,6 +61,7 @@
     </div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="{{url_for('static', filename='js/webcam-capture.js')}}"></script>
     <script src="{{url_for('static', filename='js/script.js')}}"></script>
     <!-- Add robot face script -->
     <script src="{{url_for('static', filename='js/robot-face.js')}}"></script>

@@ -7,9 +7,12 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
+    libxrender1 \
     libxext6 \
-    libxrender-dev \
-    ffmpeg \
+    python3-dev \
+    gcc \
+    g++ \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
@@ -17,6 +20,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y v4l-utils
 
 # Copy application code
 COPY . .

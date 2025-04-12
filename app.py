@@ -1,4 +1,4 @@
-from flask import Flask, Response, render_template, request, send_from_directory
+from flask import Flask, Response, render_template, request, send_from_directory, jsonify
 from flask_socketio import SocketIO, emit
 import cv2
 import numpy as np
@@ -8,6 +8,7 @@ import time
 import os
 import sys
 import random
+import base64
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -40,17 +41,7 @@ except Exception as e:
 # Global variables
 current_emotion = "No face detected"
 lock = threading.Lock()
-camera = None
 users = {}
-
-def get_camera():
-    """Get or create camera object"""
-    global camera
-    if camera is None:
-        camera = cv2.VideoCapture(0)
-        # Give camera time to initialize
-        time.sleep(1)
-    return camera
 
 def detect_emotion(frame):
     """Detect emotion in a frame without auto-responding"""
@@ -76,63 +67,49 @@ def detect_emotion(frame):
         with lock:
             current_emotion = "Error in emotion detection"
 
-shutdown_event = threading.Event()
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-def generate_frames():
-    """Generator function for video streaming"""
-    global current_emotion
-    
-    # Try to get the camera
+@app.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
+
+@app.route('/emotion')
+def get_emotion():
+    """Return the current detected emotion"""
+    with lock:
+        return current_emotion
+
+@app.route('/process_frame', methods=['POST'])
+def process_frame():
+    """Process frames sent from the browser"""
     try:
-        cap = get_camera()
-        if not cap.isOpened():
-            print("Could not open webcam")
-            yield (b'--frame\r\n'
-                b'Content-Type: text/plain\r\n\r\n'
-                b'Could not open webcam\r\n')
-            return
-    except Exception as e:
-        print(f"Error opening camera: {e}")
-        yield (b'--frame\r\n'
-            b'Content-Type: text/plain\r\n\r\n'
-            b'Error opening camera\r\n')
-        return
+        # Get the frame data from the request
+        data = request.get_json()
+        if not data or 'frame' not in data:
+            return jsonify({'error': 'No frame data provided'}), 400
+        
+        # Decode the base64 image
+        frame_data = data['frame'].split(',')[1]  # Remove data URL prefix
+        frame_bytes = base64.b64decode(frame_data)
+        
+        # Convert to numpy array
+        np_arr = np.frombuffer(frame_bytes, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        
+        if frame is None or frame.size == 0:
+            print("Received invalid frame")
+            return jsonify({'status': 'error', 'message': 'Invalid frame'}), 400
+        
+        # Process the frame for emotion detection in a separate thread
+        threading.Thread(target=detect_emotion, args=(frame.copy(),), daemon=True).start()
+        
+        return jsonify({'status': 'success'}), 200
     
-    while not shutdown_event.is_set():
-        try:
-            success, frame = cap.read()
-            if not success:
-                print("Failed to capture image")
-                time.sleep(0.1)
-                continue
-            
-            # Process frame for emotion in a separate thread to avoid blocking
-            emotion_thread = threading.Thread(target=detect_emotion, args=(frame.copy(),), daemon=True)
-            emotion_thread.start()
-            
-            # # Add emotion text to the frame
-            # with lock:
-            #     emotion_text = current_emotion
-
-            # font = cv2.FONT_HERSHEY_SIMPLEX
-            # cv2.putText(frame, emotion_text, (10, frame.shape[0] - 20), font, 0.8, (0, 255, 0), 2)
-            
-            # Encode the frame as JPEG
-            ret, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
-            
-            # Yield the frame in the HTTP response - NOTE: Fixed backslashes here
-            yield (b'--frame\r\n'
-                  b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            
-            # Wait for emotion thread to complete
-            emotion_thread.join(timeout=0.1)
-            
-            # Small delay to reduce CPU usage
-            time.sleep(0.01)
-        except Exception as e:
-            print(f"Error in frame generation: {e}")
-            time.sleep(0.1)
+    except Exception as e:
+        print(f"Error processing frame: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 def get_llm_response(query, emotion=None):
     """Get response from LLM based on text and emotion using updated OpenAI API"""
@@ -221,31 +198,6 @@ def process_mental_health_query(query, detected_emotion=""):
 
 def generate_response(user_input, emotion):
     return process_mental_health_query(user_input, emotion)
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/video_feed')
-def video_feed():
-    """Video streaming route with proper headers"""
-    response = Response(generate_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-    # Add headers to prevent caching
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
-
-@app.route('/static/<path:path>')
-def send_static(path):
-    return send_from_directory('static', path)
-
-@app.route('/emotion')
-def get_emotion():
-    """Return the current detected emotion"""
-    with lock:
-        return current_emotion
 
 @socketio.on("connect")
 def handle_connect():
@@ -338,19 +290,8 @@ def handle_update_username(data):
         "new_username": new_username
     }, broadcast=True)
 
-def cleanup():
-    shutdown_event.set()
-    global camera
-    if camera is not None and camera.isOpened():
-        camera.release()
-    print("Camera resources released")
-
 if __name__ == '__main__':
     try:
-        # Register cleanup handler
-        import atexit
-        atexit.register(cleanup)
-        
         # Create static folder if it doesn't exist
         os.makedirs("static", exist_ok=True)
         
@@ -358,5 +299,4 @@ if __name__ == '__main__':
         socketio.run(app, debug=False, host='0.0.0.0', port=5000)
     except Exception as e:
         print(f"Error starting app: {e}")
-        cleanup()
         sys.exit(1)
