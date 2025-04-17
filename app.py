@@ -25,7 +25,7 @@ load_dotenv()
 # Configure OpenAI client
 try:
     # Initialize OpenAI client
-    openai_client = OpenAI(api_key="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")
+    openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     
     if os.getenv("OPENAI_API_KEY"):
         print("OpenAI API key loaded successfully")
