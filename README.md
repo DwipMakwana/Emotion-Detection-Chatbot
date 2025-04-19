@@ -11,8 +11,8 @@ Gideon is an AI-powered mental health assistant that uses facial emotion recogni
 - Animated 3D face to represent Gideon
 
 ## Screenshots
-<img src="1.jpg" width="750">
-<img src="2.jpg" width="750">
+<img src="1.JPG" width="750">
+<img src="2.JPG" width="750">
 
 ## Running with Docker
 
