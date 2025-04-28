@@ -19,10 +19,376 @@ let speakingInterval = null; // Interval for speaking animation
 
 let cameraZoom = 2;
 
+let textAnimator = null;
+let currentSpeakingAnimation = null;
+
+/**
+ * Text to Mouth Animation Generator
+ * Creates facial morphtarget animations for a speaking 3D character
+ */
+
+class TextToMouthAnimation {
+    constructor() {
+      // Map of phonemes to mouth shapes
+      this.phonemeToMouthMap = {
+        // Vowels
+        'AA': { jawOpen: 0.7, mouthSmile_L: 0.1, mouthSmile_R: 0.1 },  // "ah" as in "father"
+        'AE': { jawOpen: 0.5, mouthSmile_L: 0.3, mouthSmile_R: 0.3 },  // "ae" as in "cat"
+        'AH': { jawOpen: 0.4, mouthSmile_L: 0.1, mouthSmile_R: 0.1 },  // "uh" as in "but"
+        'AO': { jawOpen: 0.6, mouthPucker: 0.3 },                      // "aw" as in "dog"
+        'AW': { jawOpen: 0.5, mouthPucker: 0.5 },                      // "ow" as in "cow"
+        'AY': { jawOpen: 0.5, mouthSmile_L: 0.5, mouthSmile_R: 0.5 },  // "eye" as in "my"
+        'EH': { jawOpen: 0.3, mouthSmile_L: 0.4, mouthSmile_R: 0.4 },  // "eh" as in "bed"
+        'ER': { jawOpen: 0.3, mouthPucker: 0.2 },                      // "er" as in "bird"
+        'EY': { jawOpen: 0.3, mouthSmile_L: 0.6, mouthSmile_R: 0.6 },  // "ay" as in "say"
+        'IH': { jawOpen: 0.3, mouthSmile_L: 0.3, mouthSmile_R: 0.3 },  // "ih" as in "bit"
+        'IY': { jawOpen: 0.2, mouthSmile_L: 0.7, mouthSmile_R: 0.7 },  // "ee" as in "see"
+        'OW': { jawOpen: 0.4, mouthPucker: 0.6 },                      // "oh" as in "go"
+        'OY': { jawOpen: 0.4, mouthPucker: 0.5 },                      // "oy" as in "boy"
+        'UH': { jawOpen: 0.3, mouthPucker: 0.7 },                      // "oo" as in "good"
+        'UW': { jawOpen: 0.2, mouthPucker: 0.8 },                      // "oo" as in "food"
+        
+        // Consonants
+        'B': { mouthClose: 0.8, mouthPress_L: 0.5, mouthPress_R: 0.5 },    // "b" as in "bat"
+        'CH': { jawOpen: 0.2, mouthPucker: 0.5 },                          // "ch" as in "chat"
+        'D': { jawOpen: 0.2, tongueOut: 0.3 },                             // "d" as in "dog"
+        'DH': { jawOpen: 0.2, tongueOut: 0.5 },                            // "th" as in "that"
+        'F': { jawOpen: 0.1, mouthPress_L: 0.3, mouthPress_R: 0.3 },       // "f" as in "fat"
+        'G': { jawOpen: 0.3 },                                             // "g" as in "got"
+        'HH': { jawOpen: 0.2 },                                            // "h" as in "hat"
+        'JH': { jawOpen: 0.2, mouthPucker: 0.3 },                          // "j" as in "jump"
+        'K': { jawOpen: 0.3 },                                             // "k" as in "cat"
+        'L': { jawOpen: 0.3, tongueOut: 0.5 },                             // "l" as in "lot"
+        'M': { mouthClose: 0.8, mouthPress_L: 0.5, mouthPress_R: 0.5 },    // "m" as in "mom"
+        'N': { jawOpen: 0.2, tongueOut: 0.2 },                             // "n" as in "not"
+        'NG': { jawOpen: 0.2, tongueOut: 0.3 },                            // "ng" as in "sing"
+        'P': { mouthClose: 0.9, mouthPress_L: 0.7, mouthPress_R: 0.7 },    // "p" as in "pot"
+        'R': { jawOpen: 0.3, mouthPucker: 0.4 },                           // "r" as in "rot"
+        'S': { jawOpen: 0.2, mouthStretch_L: 0.3, mouthStretch_R: 0.3 },   // "s" as in "sit"
+        'SH': { jawOpen: 0.2, mouthPucker: 0.6 },                          // "sh" as in "ship"
+        'T': { jawOpen: 0.2, tongueOut: 0.3 },                             // "t" as in "top"
+        'TH': { jawOpen: 0.1, tongueOut: 0.6 },                            // "th" as in "thin"
+        'V': { jawOpen: 0.1, mouthPress_L: 0.3, mouthPress_R: 0.3 },       // "v" as in "vat"
+        'W': { jawOpen: 0.1, mouthPucker: 0.8 },                           // "w" as in "wit"
+        'Y': { jawOpen: 0.3, mouthSmile_L: 0.3, mouthSmile_R: 0.3 },       // "y" as in "yes"
+        'Z': { jawOpen: 0.2, mouthStretch_L: 0.3, mouthStretch_R: 0.3 },   // "z" as in "zip"
+        'ZH': { jawOpen: 0.2, mouthPucker: 0.5 },                          // "zh" as in "vision"
+        
+        // Special cases
+        'SPACE': { jawOpen: 0.1, mouthSmile_L: 0.1, mouthSmile_R: 0.1 },   // Subtle movement between words
+        'PAUSE': { jawOpen: 0.02, mouthClose: 0.3 },                       // For punctuation pauses
+        'DEFAULT': { jawOpen: 0 }                                          // Default neutral position
+      };
+  
+      // Simple word-to-phoneme mapping for common words
+      this.wordToPhonemeMap = {
+        'hello': ['HH', 'EH', 'L', 'OW'],
+        'hi': ['HH', 'AY'],
+        'yes': ['Y', 'EH', 'S'],
+        'no': ['N', 'OW'],
+        'the': ['DH', 'AH'],
+        'and': ['AE', 'N', 'D'],
+        'to': ['T', 'UW'],
+        'a': ['AH'],
+        'of': ['AH', 'V'],
+        'in': ['IH', 'N'],
+        'for': ['F', 'ER'],
+        'is': ['IH', 'Z'],
+        'on': ['AA', 'N'],
+        'that': ['DH', 'AE', 'T'],
+        'by': ['B', 'AY'],
+        'this': ['DH', 'IH', 'S'],
+        'with': ['W', 'IH', 'TH'],
+        'you': ['Y', 'UW'],
+        'it': ['IH', 'T'],
+        'have': ['HH', 'AE', 'V'],
+        'are': ['AA', 'R'],
+        'be': ['B', 'IY'],
+        'at': ['AE', 'T'],
+        'or': ['ER'],
+        'your': ['Y', 'UH', 'R'],
+        'from': ['F', 'R', 'AH', 'M'],
+        'but': ['B', 'AH', 'T'],
+        'not': ['N', 'AA', 'T'],
+      };
+      
+      // Default viseme patterns for letters
+      this.letterToPhoneme = {
+        'a': 'AE',
+        'b': 'B',
+        'c': 'K',
+        'd': 'D',
+        'e': 'EH',
+        'f': 'F',
+        'g': 'G',
+        'h': 'HH',
+        'i': 'IY',
+        'j': 'JH',
+        'k': 'K',
+        'l': 'L',
+        'm': 'M',
+        'n': 'N',
+        'o': 'OW',
+        'p': 'P',
+        'q': 'K',
+        'r': 'R',
+        's': 'S',
+        't': 'T',
+        'u': 'UH',
+        'v': 'V',
+        'w': 'W',
+        'x': 'K', // Approximation
+        'y': 'Y',
+        'z': 'Z',
+        ' ': 'SPACE',
+        '.': 'PAUSE',
+        ',': 'PAUSE',
+        '!': 'PAUSE',
+        '?': 'PAUSE'
+      };
+    }
+  
+    /**
+     * Convert text to a sequence of morphtarget frames
+     * @param {string} text - The text to be spoken
+     * @param {number} durationMs - Total animation duration in milliseconds
+     * @param {number} fps - Frames per second for the animation
+     * @return {Array} Array of frames with morphtarget values
+     */
+    textToMouthAnimation(text, durationMs = 2000, fps = 30) {
+      // Clean the text and split it into words
+      const cleanText = text.toLowerCase().trim();
+      const words = cleanText.split(/\s+/);
+      
+      // Convert words to phonemes
+      const allPhonemes = [];
+      words.forEach(word => {
+        if (this.wordToPhonemeMap[word]) {
+          // Use predefined phoneme mapping if available
+          allPhonemes.push(...this.wordToPhonemeMap[word]);
+        } else {
+          // Otherwise map each letter to a phoneme
+          for (let i = 0; i < word.length; i++) {
+            const letter = word[i];
+            allPhonemes.push(this.letterToPhoneme[letter] || 'DEFAULT');
+          }
+        }
+        // Add a space between words
+        allPhonemes.push('SPACE');
+      });
+      
+      // Remove the last space
+      if (allPhonemes.length > 0 && allPhonemes[allPhonemes.length - 1] === 'SPACE') {
+        allPhonemes.pop();
+      }
+      
+      // Calculate frames
+      const totalFrames = Math.floor(durationMs * fps / 1000);
+      const phonemesPerFrame = allPhonemes.length / totalFrames;
+      const frames = [];
+      
+      // Generate frames
+      for (let frameIdx = 0; frameIdx < totalFrames; frameIdx++) {
+        const phonemeIdx = Math.min(Math.floor(frameIdx * phonemesPerFrame), allPhonemes.length - 1);
+        const phoneme = allPhonemes[phonemeIdx];
+        const mouthShape = this.phonemeToMouthMap[phoneme] || this.phonemeToMouthMap['DEFAULT'];
+        
+        // Create a frame with all morphtargets initialized to 0
+        const frame = this.createEmptyMorphTargetFrame();
+        
+        // Apply the mouth shape values to the frame
+        Object.keys(mouthShape).forEach(key => {
+          if (frame.hasOwnProperty(key)) {
+            frame[key] = mouthShape[key];
+          }
+        });
+        
+        // Add some randomness for natural eye blinks
+        if (Math.random() < 0.02) { // 2% chance per frame for a blink
+          frame.eyeBlink_L = 0.9;
+          frame.eyeBlink_R = 0.9;
+        }
+        
+        frames.push(frame);
+      }
+      
+      return frames;
+    }
+    
+    /**
+     * Create an empty frame with all morphtargets set to 0
+     * @return {Object} Empty morphtarget frame
+     */
+    createEmptyMorphTargetFrame() {
+      return {
+        browInnerUp: 0,
+        browDown_L: 0,
+        browDown_R: 0,
+        browOuterUp_L: 0,
+        browOuterUp_R: 0,
+        eyeLookUp_L: 0,
+        eyeLookUp_R: 0,
+        eyeLookDown_L: 0,
+        eyeLookDown_R: 0,
+        eyeLookIn_L: 0,
+        eyeLookIn_R: 0,
+        eyeLookOut_L: 0,
+        eyeLookOut_R: 0,
+        eyeBlink_L: 0,
+        eyeBlink_R: 0,
+        eyeSquint_L: 0,
+        eyeSquint_R: 0,
+        eyeWide_L: 0,
+        eyeWide_R: 0,
+        cheekPuff: 0,
+        cheekSquint_L: 0,
+        cheekSquint_R: 0,
+        noseSneer_L: 0,
+        noseSneer_R: 0,
+        jawOpen: 0,
+        jawForward: 0,
+        jawLeft: 0,
+        jawRight: 0,
+        mouthFunnel: 0,
+        mouthPucker: 0,
+        mouthLeft: 0,
+        mouthRight: 0,
+        mouthRollUpper: 0,
+        mouthRollLower: 0,
+        mouthShrugUpper: 0,
+        mouthShrugLower: 0,
+        mouthClose: 0,
+        mouthSmile_L: 0,
+        mouthSmile_R: 0,
+        mouthFrown_L: 0,
+        mouthFrown_R: 0,
+        mouthDimple_L: 0,
+        mouthDimple_R: 0,
+        mouthUpperUp_L: 0,
+        mouthUpperUp_R: 0,
+        mouthLowerDown_L: 0,
+        mouthLowerDown_R: 0,
+        mouthPress_L: 0,
+        mouthPress_R: 0,
+        mouthStretch_L: 0,
+        mouthStretch_R: 0,
+        tongueOut: 0
+      };
+    }
+    
+    /**
+     * Add emotions to the animation frames
+     * @param {Array} frames - Animation frames 
+     * @param {string} emotion - Emotion type (happy, sad, angry, surprised)
+     * @param {number} intensity - Emotion intensity from 0 to 1
+     * @return {Array} Updated animation frames
+     */
+    addEmotion(frames, emotion, intensity = 0.5) {
+      const emotions = {
+        happy: {
+          mouthSmile_L: 0.7,
+          mouthSmile_R: 0.7,
+          eyeSquint_L: 0.3,
+          eyeSquint_R: 0.3,
+          cheekSquint_L: 0.3,
+          cheekSquint_R: 0.3
+        },
+        sad: {
+          mouthFrown_L: 0.7,
+          mouthFrown_R: 0.7,
+          browInnerUp: 0.5,
+          mouthLowerDown_L: 0.3,
+          mouthLowerDown_R: 0.3
+        },
+        angry: {
+          browDown_L: 0.6,
+          browDown_R: 0.6,
+          noseSneer_L: 0.4,
+          noseSneer_R: 0.4,
+          mouthPress_L: 0.4,
+          mouthPress_R: 0.4
+        },
+        surprised: {
+          eyeWide_L: 0.7,
+          eyeWide_R: 0.7,
+          browInnerUp: 0.6,
+          browOuterUp_L: 0.6,
+          browOuterUp_R: 0.6,
+          jawOpen: 0.3
+        }
+      };
+      
+      const emotionShape = emotions[emotion] || emotions['happy'];
+      
+      // Apply emotion to all frames
+      return frames.map(frame => {
+        const newFrame = {...frame};
+        Object.keys(emotionShape).forEach(key => {
+          if (newFrame.hasOwnProperty(key)) {
+            // Blend existing value with emotion value based on intensity
+            newFrame[key] = newFrame[key] * (1 - intensity) + emotionShape[key] * intensity;
+          }
+        });
+        return newFrame;
+      });
+    }
+  }
+  
+  // Usage example:
+  function animateText(text, durationMs = 2000, emotion = null, emotionIntensity = 0.5) {
+    const animator = new TextToMouthAnimation();
+    let frames = animator.textToMouthAnimation(text, durationMs);
+    
+    // Add emotion if specified
+    if (emotion) {
+      frames = animator.addEmotion(frames, emotion, emotionIntensity);
+    }
+    
+    return frames;
+  }
+  
+  // Integration with 3D model example:
+  function applyAnimationToModel(model, frames, fps = 30) {
+    let frameIndex = 0;
+    const interval = 1000 / fps;
+    
+    // Apply first frame immediately
+    applyFrameToModel(model, frames[0]);
+    
+    // Then set up interval for the rest
+    const animationInterval = setInterval(() => {
+      frameIndex++;
+      
+      if (frameIndex >= frames.length) {
+        clearInterval(animationInterval);
+        // Reset to neutral pose
+        applyFrameToModel(model, animator.createEmptyMorphTargetFrame());
+        return;
+      }
+      
+      applyFrameToModel(model, frames[frameIndex]);
+    }, interval);
+    
+    return animationInterval; // Return so it can be cleared if needed
+  }
+  
+  // Helper function to apply a single frame to the model
+  function applyFrameToModel(model, frame) {
+    // Assuming model.morphTargetInfluences is accessible and maps to the same names
+    Object.keys(frame).forEach(key => {
+      const morphTargetIndex = model.morphTargetDictionary[key];
+      if (morphTargetIndex !== undefined) {
+        model.morphTargetInfluences[morphTargetIndex] = frame[key];
+      }
+    });
+  }
+
 // Initialize the 3D scene
 function initRobotFace() {
     console.log("Initializing robot face");
     
+    textAnimator = new TextToMouthAnimation();
+
     const container = document.getElementById('robot-face-container');
     if (!container) {
         console.error("Container element not found");
@@ -257,155 +623,215 @@ function resetAllMorphTargets() {
 }
 
 // Enhanced start speaking with smoother transitions
-function startSpeaking() {
+function startSpeaking(text, duration) {
     // Stop idle animation when speaking
     stopIdleAnimation();
     
     if (speakingInterval) {
         clearInterval(speakingInterval);
+        speakingInterval = null;
     }
     
-    console.log("Starting speaking animation");
-    
-    // Define speaking animation patterns
-    const mouthTargets = [
-        'mouthOpen', 'jawOpen', 'mouthFunnel', 'mouthPucker'
-    ];
-    
-    // Initial expression setup - more gradual
-    animateMorphTarget('browInnerUp', 0, 0.3, 500);
-    animateMorphTarget('eyeWide_L', 0, 0.2, 500);
-    animateMorphTarget('eyeWide_R', 0, 0.2, 500);
-    
-    // Create more varied and natural speaking patterns
-    let speakingStep = 0;
-    let lastMouthShape = -1;
-    let transitionDuration = 120; // Base duration for transitions
-    
-    speakingInterval = setInterval(() => {
-        // Select a mouth shape that's different from the last one
-        let mouthShape;
-        do {
-            mouthShape = Math.floor(Math.random() * 5);
-        } while (mouthShape === lastMouthShape);
+    // If no text is provided, use the default random speaking animation
+    if (!text) {
+        console.log("Starting default speaking animation");
+        // Your existing random speaking animation code here
+        // Define speaking animation patterns
+        const mouthTargets = [
+            'mouthOpen', 'jawOpen', 'mouthFunnel', 'mouthPucker'
+        ];
         
-        lastMouthShape = mouthShape;
+        // Initial expression setup - more gradual
+        animateMorphTarget('browInnerUp', 0, 0.3, 500);
+        animateMorphTarget('eyeWide_L', 0, 0.2, 500);
+        animateMorphTarget('eyeWide_R', 0, 0.2, 500);
         
-        // Vary the strength and duration slightly for natural movement
-        const strengthVariation = 0.8 + Math.random() * 0.4; // 0.8-1.2 multiplier
-        const durationVariation = 0.9 + Math.random() * 0.2; // 0.9-1.1 multiplier
-        const actualDuration = Math.floor(transitionDuration * durationVariation);
+        // Create more varied and natural speaking patterns
+        let speakingStep = 0;
+        let lastMouthShape = -1;
+        let transitionDuration = 120; // Base duration for transitions
         
-        // Reset previous mouth positions gradually
-        mouthTargets.forEach(target => {
-            const currentValue = morphTargetInfluences[target] || 0;
-            if (currentValue > 0) {
-                animateMorphTarget(target, currentValue, 0, actualDuration);
+        speakingInterval = setInterval(() => {
+            // Select a mouth shape that's different from the last one
+            let mouthShape;
+            do {
+                mouthShape = Math.floor(Math.random() * 5);
+            } while (mouthShape === lastMouthShape);
+            
+            lastMouthShape = mouthShape;
+            
+            // Vary the strength and duration slightly for natural movement
+            const strengthVariation = 0.8 + Math.random() * 0.4; // 0.8-1.2 multiplier
+            const durationVariation = 0.9 + Math.random() * 0.2; // 0.9-1.1 multiplier
+            const actualDuration = Math.floor(transitionDuration * durationVariation);
+            
+            // Reset previous mouth positions gradually
+            mouthTargets.forEach(target => {
+                const currentValue = morphTargetInfluences[target] || 0;
+                if (currentValue > 0) {
+                    animateMorphTarget(target, currentValue, 0, actualDuration);
+                }
+            });
+            
+            // Apply new mouth shape with varied intensity
+            switch (mouthShape) {
+                case 0:
+                    animateMorphTarget('jawOpen', 0, 0.6 * strengthVariation, actualDuration);
+                    animateMorphTarget('mouthOpen', 0, 0.7 * strengthVariation, actualDuration);
+                    break;
+                case 1:
+                    animateMorphTarget('mouthFunnel', 0, 0.5 * strengthVariation, actualDuration);
+                    animateMorphTarget('jawOpen', 0, 0.3 * strengthVariation, actualDuration);
+                    break;
+                case 2:
+                    animateMorphTarget('mouthPucker', 0, 0.4 * strengthVariation, actualDuration);
+                    animateMorphTarget('jawOpen', 0, 0.2 * strengthVariation, actualDuration);
+                    break;
+                case 3:
+                    animateMorphTarget('mouthOpen', 0, 0.3 * strengthVariation, actualDuration);
+                    animateMorphTarget('jawOpen', 0, 0.5 * strengthVariation, actualDuration);
+                    break;
+                case 4:
+                    // Sometimes move mouth horizontally
+                    if (Math.random() > 0.5) {
+                        animateMorphTarget('mouthLeft', 0, 0.3 * strengthVariation, actualDuration);
+                    } else {
+                        animateMorphTarget('mouthRight', 0, 0.3 * strengthVariation, actualDuration);
+                    }
+                    animateMorphTarget('jawOpen', 0, 0.3 * strengthVariation, actualDuration);
+                    break;
             }
-        });
-        
-        // Apply new mouth shape with varied intensity
-        switch (mouthShape) {
-            case 0:
-                animateMorphTarget('jawOpen', 0, 0.6 * strengthVariation, actualDuration);
-                animateMorphTarget('mouthOpen', 0, 0.7 * strengthVariation, actualDuration);
-                break;
-            case 1:
-                animateMorphTarget('mouthFunnel', 0, 0.5 * strengthVariation, actualDuration);
-                animateMorphTarget('jawOpen', 0, 0.3 * strengthVariation, actualDuration);
-                break;
-            case 2:
-                animateMorphTarget('mouthPucker', 0, 0.4 * strengthVariation, actualDuration);
-                animateMorphTarget('jawOpen', 0, 0.2 * strengthVariation, actualDuration);
-                break;
-            case 3:
-                animateMorphTarget('mouthOpen', 0, 0.3 * strengthVariation, actualDuration);
-                animateMorphTarget('jawOpen', 0, 0.5 * strengthVariation, actualDuration);
-                break;
-            case 4:
-                // Sometimes move mouth horizontally
+            
+            // Occasional tongue movement
+            if (Math.random() < 0.05) {
+                animateMorphTarget('tongueOut', 0, 0.3, actualDuration * 2);
+                setTimeout(() => {
+                    animateMorphTarget('tongueOut', 0.3, 0, actualDuration * 2);
+                }, actualDuration * 2);
+            }
+            
+            // Occasional eye movements and expressions with smoother timing
+            if (speakingStep % 6 === 0) {
+                const randomEye = Math.random() > 0.5 ? 'eyeLookUp_' : 'eyeLookDown_';
+                const side = Math.random() > 0.5 ? 'L' : 'R';
+                const otherSide = side === 'L' ? 'R' : 'L';
+                
+                animateMorphTarget(randomEye + side, 0, 0.3, 400);
+                
+                // Sometimes move both eyes
                 if (Math.random() > 0.5) {
-                    animateMorphTarget('mouthLeft', 0, 0.3 * strengthVariation, actualDuration);
+                    animateMorphTarget(randomEye + otherSide, 0, 0.3, 400);
+                }
+                
+                setTimeout(() => {
+                    animateMorphTarget(randomEye + side, 0.3, 0, 400);
+                    if (Math.random() > 0.5) {
+                        animateMorphTarget(randomEye + otherSide, 0.3, 0, 400);
+                    }
+                }, 600);
+            }
+            
+            // Eyebrow movement variation
+            if (speakingStep % 8 === 0) {
+                const browMove = Math.random();
+                
+                if (browMove < 0.33) {
+                    // Raise inner brows
+                    animateMorphTarget('browInnerUp', morphTargetInfluences['browInnerUp'] || 0, 
+                                      0.5 * strengthVariation, 400);
+                    setTimeout(() => {
+                        animateMorphTarget('browInnerUp', 0.5 * strengthVariation, 0.3, 400);
+                    }, 600);
+                } else if (browMove < 0.66) {
+                    // Raise outer brows
+                    animateMorphTarget('browOuterUp_L', 0, 0.4 * strengthVariation, 400);
+                    animateMorphTarget('browOuterUp_R', 0, 0.4 * strengthVariation, 400);
+                    setTimeout(() => {
+                        animateMorphTarget('browOuterUp_L', 0.4 * strengthVariation, 0, 400);
+                        animateMorphTarget('browOuterUp_R', 0.4 * strengthVariation, 0, 400);
+                    }, 600);
                 } else {
-                    animateMorphTarget('mouthRight', 0, 0.3 * strengthVariation, actualDuration);
+                    // Lower brows
+                    animateMorphTarget('browDown_L', 0, 0.3 * strengthVariation, 400);
+                    animateMorphTarget('browDown_R', 0, 0.3 * strengthVariation, 400);
+                    setTimeout(() => {
+                        animateMorphTarget('browDown_L', 0.3 * strengthVariation, 0, 400);
+                        animateMorphTarget('browDown_R', 0.3 * strengthVariation, 0, 400);
+                    }, 600);
                 }
-                animateMorphTarget('jawOpen', 0, 0.3 * strengthVariation, actualDuration);
-                break;
-        }
-        
-        // Occasional tongue movement
-        if (Math.random() < 0.05) {
-            animateMorphTarget('tongueOut', 0, 0.3, actualDuration * 2);
-            setTimeout(() => {
-                animateMorphTarget('tongueOut', 0.3, 0, actualDuration * 2);
-            }, actualDuration * 2);
-        }
-        
-        // Occasional eye movements and expressions with smoother timing
-        if (speakingStep % 6 === 0) {
-            const randomEye = Math.random() > 0.5 ? 'eyeLookUp_' : 'eyeLookDown_';
-            const side = Math.random() > 0.5 ? 'L' : 'R';
-            const otherSide = side === 'L' ? 'R' : 'L';
-            
-            animateMorphTarget(randomEye + side, 0, 0.3, 400);
-            
-            // Sometimes move both eyes
-            if (Math.random() > 0.5) {
-                animateMorphTarget(randomEye + otherSide, 0, 0.3, 400);
             }
             
-            setTimeout(() => {
-                animateMorphTarget(randomEye + side, 0.3, 0, 400);
-                if (Math.random() > 0.5) {
-                    animateMorphTarget(randomEye + otherSide, 0.3, 0, 400);
-                }
-            }, 600);
+            // Random blinks during speaking
+            if (Math.random() < 0.05 && !blinkInProgress) {
+                blinkInProgress = true;
+                animateMorphTarget('eyeBlink_L', 0, 1, 150);
+                animateMorphTarget('eyeBlink_R', 0, 1, 150);
+                setTimeout(() => {
+                    animateMorphTarget('eyeBlink_L', 1, 0, 150);
+                    animateMorphTarget('eyeBlink_R', 1, 0, 150);
+                    blinkInProgress = false;
+                }, 150);
+            }
+            
+            speakingStep++;
+        }, 180); // Slightly longer interval for more natural speech rhythm
+    } else {
+        // Use text-based mouth animation
+        console.log("Starting text-based speaking animation:", text);
+        
+        // Calculate appropriate duration if not provided
+        if (!duration) {
+            // Rough estimate: 100ms per character with a minimum of 1000ms
+            duration = Math.max(text.length * 100, 1000);
         }
         
-        // Eyebrow movement variation
-        if (speakingStep % 8 === 0) {
-            const browMove = Math.random();
+        // Generate frames for the text
+        const frames = textAnimator.textToMouthAnimation(text, duration);
+        
+        // Apply the frames
+        let frameIndex = 0;
+        const fps = 30;
+        const frameInterval = 1000 / fps;
+        
+        // Initial expression setup
+        animateMorphTarget('browInnerUp', 0, 0.3, 300);
+        animateMorphTarget('eyeWide_L', 0, 0.2, 300);
+        animateMorphTarget('eyeWide_R', 0, 0.2, 300);
+        
+        // Apply each frame in sequence
+        if (currentSpeakingAnimation) {
+            clearInterval(currentSpeakingAnimation);
+        }
+        
+        currentSpeakingAnimation = setInterval(() => {
+            if (frameIndex >= frames.length) {
+                clearInterval(currentSpeakingAnimation);
+                currentSpeakingAnimation = null;
+                stopSpeaking();
+                return;
+            }
             
-            if (browMove < 0.33) {
-                // Raise inner brows
-                animateMorphTarget('browInnerUp', morphTargetInfluences['browInnerUp'] || 0, 
-                                   0.5 * strengthVariation, 400);
+            const frame = frames[frameIndex];
+            
+            // Apply all morphtargets from the frame
+            Object.keys(frame).forEach(morphTarget => {
+                setMorphTarget(morphTarget, frame[morphTarget]);
+            });
+            
+            // Add occasional random eye movements
+            if (frameIndex % 15 === 0 && Math.random() < 0.3) {
+                const randomEye = Math.random() > 0.5 ? 'eyeLookUp_' : 'eyeLookDown_';
+                const side = Math.random() > 0.5 ? 'L' : 'R';
+                animateMorphTarget(randomEye + side, 0, 0.3, 400);
+                
                 setTimeout(() => {
-                    animateMorphTarget('browInnerUp', 0.5 * strengthVariation, 0.3, 400);
-                }, 600);
-            } else if (browMove < 0.66) {
-                // Raise outer brows
-                animateMorphTarget('browOuterUp_L', 0, 0.4 * strengthVariation, 400);
-                animateMorphTarget('browOuterUp_R', 0, 0.4 * strengthVariation, 400);
-                setTimeout(() => {
-                    animateMorphTarget('browOuterUp_L', 0.4 * strengthVariation, 0, 400);
-                    animateMorphTarget('browOuterUp_R', 0.4 * strengthVariation, 0, 400);
-                }, 600);
-            } else {
-                // Lower brows
-                animateMorphTarget('browDown_L', 0, 0.3 * strengthVariation, 400);
-                animateMorphTarget('browDown_R', 0, 0.3 * strengthVariation, 400);
-                setTimeout(() => {
-                    animateMorphTarget('browDown_L', 0.3 * strengthVariation, 0, 400);
-                    animateMorphTarget('browDown_R', 0.3 * strengthVariation, 0, 400);
+                    animateMorphTarget(randomEye + side, 0.3, 0, 400);
                 }, 600);
             }
-        }
-        
-        // Random blinks during speaking
-        if (Math.random() < 0.05 && !blinkInProgress) {
-            blinkInProgress = true;
-            animateMorphTarget('eyeBlink_L', 0, 1, 150);
-            animateMorphTarget('eyeBlink_R', 0, 1, 150);
-            setTimeout(() => {
-                animateMorphTarget('eyeBlink_L', 1, 0, 150);
-                animateMorphTarget('eyeBlink_R', 1, 0, 150);
-                blinkInProgress = false;
-            }, 150);
-        }
-        
-        speakingStep++;
-    }, 180); // Slightly longer interval for more natural speech rhythm
+            
+            frameIndex++;
+        }, frameInterval);
+    }
 }
 
 // Enhanced stop speaking with smoother transitions
@@ -626,7 +1052,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Make functions available globally
-window.startSpeaking = startSpeaking;
+window.startSpeaking = function(text, duration) {
+    startSpeaking(text, duration);
+};
 window.stopSpeaking = stopSpeaking;
 window.startIdleAnimation = startIdleAnimation;
 window.stopIdleAnimation = stopIdleAnimation;

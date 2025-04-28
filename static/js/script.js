@@ -173,7 +173,7 @@ function appendMessage({ username, avatar, message }) {
 function speakMessage(message) {
     // Make sure startSpeaking is called before speech synthesis
     if (window.startSpeaking) {
-        window.startSpeaking();
+        window.startSpeaking(message);
     }
     
     getVoices().then((voices) => {
